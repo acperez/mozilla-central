@@ -30,6 +30,9 @@ public:
 
   void AddOutputBytes(uint64_t aBytes);
 
+  virtual uint64_t ByteCountSent() { return 0; }
+  virtual uint64_t ByteCountReceived() { return 0; }
+
   nsUDPServerSocket();
 
   // This must be public to support older compilers (xlC_r on AIX)

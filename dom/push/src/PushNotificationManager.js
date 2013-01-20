@@ -12,6 +12,7 @@ const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/DOMRequestHelper.jsm");
+Cu.import("resource://gre/modules/ObjectWrapper.jsm");
 
 XPCOMUtils.defineLazyServiceGetter(this, "cpmm",
                                    "@mozilla.org/childprocessmessagemanager;1",
@@ -42,6 +43,22 @@ PushNotificationManager.prototype = {
       throw Cr.NS_ERROR_FAILURE;
     }
   },
+
+  setup: function setup(aOptions) {
+    if (DEBUG) debug("Setup");
+
+    this.checkPrivileges();
+
+    return cpmm.sendSyncMessage("PushNotification:Setup", {options: aOptions})[0];
+  },
+
+  getSetup: function getSetup() {
+    if (DEBUG) debug("getSetup");
+
+    this.checkPrivileges();
+
+    return ObjectWrapper.wrap(cpmm.sendSyncMessage("PushNotification:GetSetup")[0], this._window);
+  }, 
 
   requestURL: function requestURL(token, pubkey) {
     if (DEBUG) debug("requestURL");

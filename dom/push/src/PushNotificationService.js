@@ -16,12 +16,10 @@ Cu.import("resource://gre/modules/PushNotificationDB.jsm");
 const PUSHNOTIFICATIONSERVICE_CONTRACTID = "@mozilla.org/pushnotificationservice;1";
 const PUSHNOTIFICATIONSERVICE_CID = Components.ID("{535a5dff-ad11-48b3-8577-933570c145e9}");
 
-const kDefaultReceiverPort = 5000
 const kNetworkInterfaceStateChangedTopic = "network-interface-state-changed";
 const kXpcomShutdownObserverTopic        = "xpcom-shutdown";
 const kMobileConnectionChangedTopic      = "mobile-connection-iccinfo-changed";
 
-const kPUSHNOTIFICATION_PREF_BRANCH = "network.push-notification.";
 const kNS_NETWORK_PROTOCOL_CONTRACTID_PREFIX =
   "@mozilla.org/network/protocol;1?name=";
 const kWS_CONTRACTID = kNS_NETWORK_PROTOCOL_CONTRACTID_PREFIX + "ws";
@@ -68,6 +66,9 @@ PushNotificationService.prototype = {
   currentSlave: null,           // slave object for running a task
   savedSlave: null,
   ip: null,
+  remoteHost: null,
+  remotePort: null,
+  remoteSsl: null,
 
   init: function() {
     if (DEBUG) {
@@ -76,7 +77,9 @@ PushNotificationService.prototype = {
     Services.obs.addObserver(this, kMobileConnectionChangedTopic, false);
     Services.obs.addObserver(this, kNetworkInterfaceStateChangedTopic, false);
 
-    this.messages = ["PushNotification:GetURL",
+    this.messages = ["PushNotification:Setup",
+                     "PushNotification:GetSetup",
+                     "PushNotification:GetURL",
                      "PushNotification:CurrentURL",
                      "PushNotification:RevokeURL"];
 
@@ -105,31 +108,25 @@ PushNotificationService.prototype = {
     }.bind(this));
 
     let loopback = false; // true = localhost, false = everybody
+    // Check if port is available
     this.server = new ServerSocketUDP(this.port, loopback);
     this.server.asyncListen(this);
   },
 
   readPrefs: function readPrefs() {
-    let branch = Services.prefs.getBranch(kPUSHNOTIFICATION_PREF_BRANCH);
-    try {
-      let nsURL = branch.getCharPref("notification-server");
-      this.nsURL = nsURL;
-    } catch (e) {
-    }
-    try {
-      let uatokenURL = branch.getCharPref("user-agent-token-server");
-      this.uatokenURL = uatokenURL;
-    } catch (e) {
+    this.remoteHost = Services.prefs.getCharPref("network.push-notification-server.host");
+    this.remotePort = Services.prefs.getIntPref("network.push-notification-server.port");
+    this.remoteSsl = Services.prefs.getBoolPref("network.push-notification-server.ssl");
+
+    if (this.remoteSsl) {
+      this.nsURL = "wss://" + this.remoteHost + ":" + this.remotePort;
+      this.uatokenURL = "https://" + this.remoteHost + ":" + this.remotePort + "/token";
+    } else {
+      this.nsURL = "ws://" + this.remoteHost + ":" + this.remotePort;
+      this.uatokenURL = "http://" + this.remoteHost + ":" + this.remotePort + "/token";
     }
 
-    // receiver port: optional
-    let port = kDefaultReceiverPort;
-    try {
-      port = branch.getIntPref("receiver-port");
-    } catch (e) {
-    }
-    this.port = port;
-
+    this.port = Services.prefs.getIntPref("network.push-local-udp-server.port");
   },
 
   onPacketReceived: function(socket, data, clientIp, clientPort) {
@@ -187,10 +184,6 @@ PushNotificationService.prototype = {
               this.mcc = 0;
               this.mnc = 0;
               this.ip = null;
-              
-/*              this.mcc = rilContentHelper.iccInfo.mcc;
-              this.mnc = rilContentHelper.iccInfo.mnc;
-              this.ip = iface.ip;*/
             }
 
             this.connect();
@@ -252,6 +245,10 @@ PushNotificationService.prototype = {
     let msg = aMessage.json;
 
     switch (aMessage.name) {
+      case "PushNotification:Setup":
+        return this.setup(msg);
+      case "PushNotification:GetSetup":
+        return this.getSetup();
       case "PushNotification:GetURL":
         this.getURL(mm, msg);
         break;
@@ -261,6 +258,48 @@ PushNotificationService.prototype = {
       case "PushNotification:RevokeURL":
         break;
     }
+  },
+
+  setup: function setup(msg){
+    let options = msg.options;
+
+    if (options.host != undefined && options.host.length != 0) {
+      this.remoteHost = options.host;
+    }
+
+    if (options.port != undefined && options.port.length != 0) {
+      this.remotePort = options.port;
+    }
+
+    if (options.ssl != undefined) {
+      this.remoteSsl = options.ssl;
+    }
+
+    if (this.remoteSsl) {
+      this.nsURL = "wss://" + this.remoteHost + ":" + this.remotePort;
+      this.uatokenURL = "https://" + this.remoteHost + ":" + this.remotePort + "/token";
+    } else {
+      this.nsURL = "ws://" + this.remoteHost + ":" + this.remotePort;
+      this.uatokenURL = "http://" + this.remoteHost + ":" + this.remotePort + "/token";
+    }
+
+    Services.prefs.setCharPref("network.push-notification-server.host", this.remoteHost);
+    Services.prefs.setIntPref("network.push-notification-server.port", this.remotePort);
+    Services.prefs.setBoolPref("network.push-notification-server.ssl", this.remoteSsl);
+
+    if (options.udpPort != undefined && options.udpPort.length != 0) {
+      this.port = options.udpPort;
+    }
+    Services.prefs.setIntPref("network.push-local-udp-server.port", this.port);
+
+    return true;
+  },
+
+  getSetup: function getSetup() {
+    return {host: this.remoteHost,
+            port: this.remotePort,
+            ssl:  this.remoteSsl,
+            udpPort: this.port};
   },
 
   getURL: function(mm, msg) {
@@ -677,6 +716,7 @@ slaveNotificationReceiver.prototype = {
     }
 
     if (msg) {
+debug("---> " + msg);
       let msgo = JSON.parse(msg);
 
       if (!Array.isArray(msgo)) {

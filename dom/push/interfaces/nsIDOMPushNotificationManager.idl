@@ -39,4 +39,22 @@ interface nsIDOMPushNotificationManager : nsISupports
    * Discard the pushing URL returned by previous calling of requestURL().
    */
   nsIDOMDOMRequest revokeURL();
+
+  /**
+   * Configure remote push notification settings.
+   *
+   * options is a JSON with the following optional parameters:
+   *
+   * - host: string defining the hostname or ip address.
+   * - port: long defining the remote port.
+   * - ssl: boolean indicating whether to use ssl or not.
+   *
+   * Return a boolean indicating if the configuration is done succesfully
+   */
+  boolean setup(in jsval options);
+
+  /**
+   * Returns the current configuration in JSON
+   */
+  jsval getSetup();
 };

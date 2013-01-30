@@ -80,8 +80,8 @@ PushNotificationService.prototype = {
     this.messages = ["PushNotification:Setup",
                      "PushNotification:GetSetup",
                      "PushNotification:GetURL",
-                     "PushNotification:CurrentURL",
-                     "PushNotification:RevokeURL"];
+                     "PushNotification:RevokeURL",
+                     "PushNotification:GetApps"];
 
     this.messages.forEach(function(msgName) {
       ppmm.addMessageListener(msgName, this);
@@ -252,10 +252,10 @@ PushNotificationService.prototype = {
       case "PushNotification:GetURL":
         this.getURL(mm, msg);
         break;
-      case "PushNotification:CurrentURL":
-        this.getCurrentURL(mm, msg);
-        break;
       case "PushNotification:RevokeURL":
+        break;
+      case "PushNotification:GetApps":
+        this.getRegisteredApps(mm, msg);
         break;
     }
   },
@@ -328,19 +328,24 @@ PushNotificationService.prototype = {
     }.bind(this));
   },
 
-  getCurrentURL: function (mm, msg) {
-    this._db.getWA(msg.manifestURL, null, function (error, success){
+  getRegisteredApps: function getRegisteredApps(mm, msg) {
+    this._db.getAllWA(function (error, success){
+
       if (success) {
-        mm.sendAsyncMessage("PushNotification:CurrentURL:Return",
-                            { id: msg.id, error: null, result: success })
-        return;
+        let result = [];
+        success.forEach(function (entry) {
+          result.push({manifestURL: entry.manifestURL});
+        });
+
+        mm.sendAsyncMessage("PushNotification:GetApps:Return",
+                            { id: msg.id, error: null, result: result });
+      } else {
+        mm.sendAsyncMessage("PushNotification:GetApps:Return",
+                            { id: msg.id, error: true, result: null });
       }
 
-      mm.sendAsyncMessage("PushNotification:CurrentURL:Return",
-                            { id: msg.id, error: true, result: null })
     });
   },
-
 
   sendMsg: function sendMsg(message, noResponseRequired) {
     if (!noResponseRequired) {

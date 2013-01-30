@@ -64,7 +64,7 @@ PushNotificationDB.prototype = {
     };
     request.onsuccess = function(event) {
       if (DEBUG) {
-+        debug("open DB onsuccess");
+        debug("open DB onsuccess");
       }
       self.db = request.result;
       if (callback) {
@@ -177,7 +177,6 @@ PushNotificationDB.prototype = {
 
   saveWA: function(pageURL, manifestURL, watoken, url) {
     let store = this.store;
-
     let req = store.put({manifestURL: manifestURL,
                          pageURL: pageURL,
                          token: watoken,

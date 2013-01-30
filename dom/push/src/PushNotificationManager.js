@@ -60,7 +60,7 @@ PushNotificationManager.prototype = {
     return ObjectWrapper.wrap(cpmm.sendSyncMessage("PushNotification:GetSetup")[0], this._window);
   }, 
 
-  requestURL: function requestURL(token, pubkey) {
+  requestRemotePermission: function requestRemotePermission(token, pubkey) {
     if (DEBUG) debug("requestURL");
 
     this.checkPrivileges();
@@ -73,18 +73,7 @@ PushNotificationManager.prototype = {
     return request;
   },
 
-  getCurrentURL: function getCurrentURL() {
-    if (DEBUG) debug("currentURL");
-
-    this.checkPrivileges();
-
-    let request = this.createRequest();
-    cpmm.sendAsyncMessage("PushNotification:CurrentURL",
-                          {id: this.getRequestId(request), manifestURL: this.manifestURL});
-    return request;
-  },
-
-  revokeURL: function revokeURL() {
+  revokeRemotePermission: function revokeRemotePermission() {
     return  Components.results.NS_ERROR_NOT_IMPLEMENTED;
     /*if (DEBUG) debug("requestURL");
 
@@ -94,6 +83,18 @@ PushNotificationManager.prototype = {
     cpmm.sendAsyncMessage("PushNotification:RevokeURL",
                           {id: this.getRequestId(request)});
     return request;*/
+  },
+
+  getRegisteredApps: function getRegisteredApps() {
+    if (DEBUG) debug("rgetRegisteredApps");
+
+    this.checkPrivileges();
+
+    let request = this.createRequest();
+    cpmm.sendAsyncMessage("PushNotification:GetApps",
+                          {id: this.getRequestId(request)});
+
+    return request;
   },
 
   receiveMessage: function(aMessage) {
@@ -112,7 +113,6 @@ PushNotificationManager.prototype = {
 
     switch (aMessage.name) {
       case "PushNotification:GetURL:Return":
-      case "PushNotification:CurrentURL:Return":
       case "PushNotification:RevokeURL:Return":
         if (msg.error) {
           Services.DOMRequest.fireError(req, msg.error);
@@ -125,7 +125,18 @@ PushNotificationManager.prototype = {
         }
         Services.DOMRequest.fireSuccess(req, result);
         break;
+      case "PushNotification:GetApps:Return":
+        if (msg.error) {
+          Services.DOMRequest.fireError(req, msg.error);
+          return;
+        }
 
+        let res = msg.result;
+        if (DEBUG) {
+          debug("result: " + JSON.stringify(res));
+        }
+        Services.DOMRequest.fireSuccess(req, ObjectWrapper.wrap(res, this._window));
+        break;
       default:
         if (DEBUG) {
           debug("Wrong message: " + aMessage.name);
@@ -140,8 +151,8 @@ PushNotificationManager.prototype = {
 //      return null;
 //    }
     this.initHelper(aWindow, ["PushNotification:GetURL:Return",
-                              "PushNotification:CurrentURL:Return",
-                              "PushNotification:RevokeURL:Return"]);
+                              "PushNotification:RevokeURL:Return",
+                              "PushNotification:GetApps:Return"]);
 
     let principal = aWindow.document.nodePrincipal;
     let secMan = Services.scriptSecurityManager;

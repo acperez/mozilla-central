@@ -26,19 +26,17 @@ interface nsIDOMPushNotificationManager : nsISupports
    * The pushing URL is available as DOMRequest.result.url after
    * calling onsuccess.
    */
-  nsIDOMDOMRequest requestURL(in DOMString token, in DOMString pubkey);
-
-  /**
-   * Get the current URL for this application for pushing messages.
-   *
-   * The returned URL is exactly what is returned by previous requestURL().
-   */
-  nsIDOMDOMRequest getCurrentURL();
+  nsIDOMDOMRequest requestRemotePermission(in DOMString token, in DOMString pubkey);
 
   /**
    * Discard the pushing URL returned by previous calling of requestURL().
    */
-  nsIDOMDOMRequest revokeURL();
+  nsIDOMDOMRequest revokeRemotePermission();
+
+  /**
+   * Return an array with the registeres apps.
+   */
+  nsIDOMDOMRequest getRegisteredApps();
 
   /**
    * Configure remote push notification settings.

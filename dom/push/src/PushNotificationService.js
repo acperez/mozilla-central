@@ -28,7 +28,6 @@ const kWSS_CONTRACTID = kNS_NETWORK_PROTOCOL_CONTRACTID_PREFIX + "wss";
 const kSYSTEMMESSAGEINTERNAL_CONTRACTID =
   "@mozilla.org/system-message-internal;1";
 
-//const KEEP_ALIVE_TIMEOUT = 1000 * 60 * 5;
 const KEEP_ALIVE_TIMEOUT = 1000 * 30;
 const SEND_MSG_TIMEOUT = 1000 * 30;
 const CON_RETRY_TIME = 1000 * 30;
@@ -69,6 +68,7 @@ PushNotificationService.prototype = {
   remoteHost: null,
   remotePort: null,
   remoteSsl: null,
+  keepAlive: null,
 
   init: function() {
     if (DEBUG) {
@@ -127,6 +127,12 @@ PushNotificationService.prototype = {
     }
 
     this.port = Services.prefs.getIntPref("network.push-local-udp-server.port");
+
+    try {
+      this.keepAlive = Services.prefs.getIntPref("network.push-notification-server.keepalive");
+    } catch (e) {
+      this.keepAlive = KEEP_ALIVE_TIMEOUT;
+    }
   },
 
   onPacketReceived: function(socket, data, clientIp, clientPort) {
@@ -275,6 +281,10 @@ PushNotificationService.prototype = {
       this.remoteSsl = options.ssl;
     }
 
+    if (options.keepAlive != undefined) {
+      this.keepAlive = options.keepAlive;
+    }
+
     if (this.remoteSsl) {
       this.nsURL = "wss://" + this.remoteHost + ":" + this.remotePort;
       this.uatokenURL = "https://" + this.remoteHost + ":" + this.remotePort + "/token";
@@ -286,6 +296,8 @@ PushNotificationService.prototype = {
     Services.prefs.setCharPref("network.push-notification-server.host", this.remoteHost);
     Services.prefs.setIntPref("network.push-notification-server.port", this.remotePort);
     Services.prefs.setBoolPref("network.push-notification-server.ssl", this.remoteSsl);
+    Services.prefs.setIntPref("network.push-notification-server.keepalive", this.keepAlive);
+
 
     if (options.udpPort != undefined && options.udpPort.length != 0) {
       this.port = options.udpPort;
@@ -299,6 +311,7 @@ PushNotificationService.prototype = {
     return {host: this.remoteHost,
             port: this.remotePort,
             ssl:  this.remoteSsl,
+            keepAlive: this.keepAlive,
             udpPort: this.port};
   },
 
@@ -422,7 +435,7 @@ PushNotificationService.prototype = {
    */
 
   onStart: function onStart(context) {
-    this.keep_alive_timer.initWithCallback(this, KEEP_ALIVE_TIMEOUT,
+    this.keep_alive_timer.initWithCallback(this, this.keepAlive,
                                            Ci.nsITimer.TYPE_ONE_SHOT);
 
     let slave = this.currentSlave;
@@ -433,7 +446,7 @@ PushNotificationService.prototype = {
 
   onMessageAvailable: function onMessageAvailable(context, msg) {
     this.send_msg_timer.cancel();
-    this.keep_alive_timer.initWithCallback(this, KEEP_ALIVE_TIMEOUT,
+    this.keep_alive_timer.initWithCallback(this, this.keepAlive,
                                            Ci.nsITimer.TYPE_ONE_SHOT);
 
     if (DEBUG) {

@@ -74,15 +74,37 @@ PushNotificationManager.prototype = {
   },
 
   revokeRemotePermission: function revokeRemotePermission() {
-    return  Components.results.NS_ERROR_NOT_IMPLEMENTED;
-    /*if (DEBUG) debug("requestURL");
+    if (DEBUG) debug("revokeURL");
 
     this.checkPrivileges();
 
     let request = this.createRequest();
     cpmm.sendAsyncMessage("PushNotification:RevokeURL",
+                          {id: this.getRequestId(request), manifestURL: this.manifestURL});
+    return request;
+  },
+
+  unregisterUA: function unregisterUA() {
+    if (DEBUG) debug("unregisterUA");
+
+    this.checkPrivileges();
+
+    let request = this.createRequest();
+    cpmm.sendAsyncMessage("PushNotification:UnregisterUA",
                           {id: this.getRequestId(request)});
-    return request;*/
+    return request;
+  },
+
+  unregisterApp: function unregisterApp(manifestURL) {
+    if (DEBUG) debug("unregisterApp: " + manifestURL);
+
+    this.checkPrivileges();
+
+    let request = this.createRequest();
+    cpmm.sendAsyncMessage("PushNotification:UnregisterApp",
+                          {id: this.getRequestId(request), manifestURL: manifestURL});
+
+    return request;
   },
 
   getRegisteredApps: function getRegisteredApps() {
@@ -114,6 +136,8 @@ PushNotificationManager.prototype = {
     switch (aMessage.name) {
       case "PushNotification:GetURL:Return":
       case "PushNotification:RevokeURL:Return":
+      case "PushNotification:UnregisterApp:Return":
+      case "PushNotification:UnregisterUA:Return":
         if (msg.error) {
           Services.DOMRequest.fireError(req, msg.error);
           return;
@@ -152,7 +176,8 @@ PushNotificationManager.prototype = {
 //    }
     this.initHelper(aWindow, ["PushNotification:GetURL:Return",
                               "PushNotification:RevokeURL:Return",
-                              "PushNotification:GetApps:Return"]);
+                              "PushNotification:GetApps:Return",
+                              "PuahNotification:UnregisterApp:Return"]);
 
     let principal = aWindow.document.nodePrincipal;
     let secMan = Services.scriptSecurityManager;

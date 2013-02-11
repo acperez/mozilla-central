@@ -81,6 +81,8 @@ PushNotificationService.prototype = {
                      "PushNotification:GetSetup",
                      "PushNotification:GetURL",
                      "PushNotification:RevokeURL",
+                     "PushNotification:UnregisterUA",
+                     "PushNotification:UnregisterApp",
                      "PushNotification:GetApps"];
 
     this.messages.forEach(function(msgName) {
@@ -259,11 +261,47 @@ PushNotificationService.prototype = {
         this.getURL(mm, msg);
         break;
       case "PushNotification:RevokeURL":
+        this.unregisterApp(mm, msg, "PushNotification:RevokeURL:Return");
+        break;
+      case "PushNotification:UnregisterApp":
+        this.unregisterApp(mm, msg, "PushNotification:UnregisterApp:Return");
+        break;
+      case "PushNotification:UnregisterUA":
+        this.unregisterUA(mm, msg);
         break;
       case "PushNotification:GetApps":
         this.getRegisteredApps(mm, msg);
         break;
     }
+  },
+
+  unregisterUA: function unregisterUA(mm, msg) {
+    if (!this.uatoken) {
+      mm.sendAsyncMessage("PushNotification:UnregisterUA:Return",
+                          { id: msg.id, error: "UA not available", result: null });
+      return;
+    }
+
+    let slave = new slaveUnregisterUA(this, msgId, mm);
+    this.addSlave(slave);
+  },
+
+  unregisterApp: function unregisterApp(mm, msg, msgType) {
+    this._db.getWA(msg.manifestURL, null, function (error, success){
+
+      if (success) {
+        if (DEBUG) {
+          debug("URL from DB: " + success);
+        }
+
+        let slave = new slaveUnregisterWA(this, msg.manifestURL, success,
+                                          msgId, mm, msgType);
+        this.addSlave(slave);
+      } else {
+        mm.sendAsyncMessage(msgType, { id: msg.id, error: "ManifestURL not found in database",
+                                       result: null });
+      }
+    }.bind(this));
   },
 
   setup: function setup(msg){
@@ -1027,6 +1065,147 @@ extend(slaveRegisterWA.prototype, {
 
     this.mm.sendAsyncMessage("PushNotification:GetURL:Return",
                              { id: this.msgId, error: msg, result: null })
+
+    this.finish();
+  }
+});
+
+/**
+ * UnRegister WEB application
+ */
+function slaveUnregisterWA(master, manifestURL, watoken, msgId, mm, msgType) {
+  this.master = master;
+  this.manifestURL = manifestURL;
+  this.watoken = watoken;
+  this.msgId = msgId;
+  this.mm = mm;
+  this.msgType = msgType;
+}
+
+slaveUnregisterWA.prototype = new slaveNotificationBase();
+extend(slaveUnregisterWA.prototype, {
+  master: null,
+  manifestURL: null,
+  watoken: null,
+
+  start: function start() {
+    if (DEBUG) {
+      debug("Unregister WA worker");
+    }
+
+    if (!this.master.ws) {
+      if (DEBUG) {
+        debug("no websocket connection!");
+      }
+
+      this.doError("No network connection available");
+      return;
+    }
+
+    this.sendUnregisterWA();
+  },
+
+  sendUnregisterWA: function sendUnregisterWA() {
+    let msg = {
+      messageType: "unregisterWA",
+      data: {
+        watoken: this.watoken,
+      }
+    };
+
+    this.master.sendMsg(JSON.stringify(msg));
+  },
+
+  handle_msg_unregisterWA: function handle_msg_unregisterWA(msg) {
+    if (msg.status == "UNREGISTERED") {
+      this.doSuccess(msg.url);
+    } else {
+      this.doError("Unregistration remote error");
+    }
+  },
+
+  doSuccess: function doSuccess(url) {
+    this.master._db.forgetWA(this.manifestURL);
+
+    this.mm.sendAsyncMessage(this.msgType,
+                             { id: this.msgId, error: null, result: url })
+
+    this.finish();
+  },
+
+  doError: function doError(msg) {
+    this.master.currentSlave = null;
+
+    this.mm.sendAsyncMessage(this.msgType,
+                             { id: this.msgId, error: msg, result: null })
+
+    this.finish();
+  }
+});
+
+/**
+ * UnRegister UA
+ */
+function slaveUnregisterUA(master, msgId, mm) {
+  this.master = master;
+  this.msgId = msgId;
+  this.mm = mm;
+}
+
+slaveUnregisterWA.prototype = new slaveNotificationBase();
+extend(slaveUnregisterWA.prototype, {
+  master: null,
+
+  start: function start() {
+    if (DEBUG) {
+      debug("Unregister UA worker");
+    }
+
+    if (!this.master.ws) {
+      if (DEBUG) {
+        debug("no websocket connection!");
+      }
+
+      this.doError("No network connection available");
+      return;
+    }
+
+    this.sendUnregisterUA();
+  },
+
+  sendUnregisterUA: function sendUnregisterUA() {
+    let msg = {
+      messageType: "unregisterUA"
+    };
+
+    this.master.sendMsg(JSON.stringify(msg));
+  },
+
+  handle_msg_unregisterUA: function handle_msg_unregisterUA(msg) {
+    // When remote server unregisters the UA it will close the connection
+    // so this code not should be called 
+    this.doError("Unregistration remote error");
+  },
+
+  onStop: function onStop(status) {
+    this.doSuccess();
+  },
+
+  doSuccess: function doSuccess(url) {
+    this.master._db.forgetUA();
+    this.master._db.forgetAllWA();
+
+    this.mm.sendAsyncMessage("PushNotification:UnregisterUA:Return",
+                        { id: msg.id, error: null, result: true });
+
+    this.finish();
+  },
+
+  doError: function doError(msg) {
+    this.master.currentSlave = null;
+
+    this.mm.sendAsyncMessage("PushNotification:UnregisterUA:Return",
+                          { id: msg.id, error: "Error unregistering UA", result: null });
 
     this.finish();
   }

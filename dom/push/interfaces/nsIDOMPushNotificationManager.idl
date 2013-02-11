@@ -34,6 +34,18 @@ interface nsIDOMPushNotificationManager : nsISupports
   nsIDOMDOMRequest revokeRemotePermission();
 
   /**
+   * Unregister the device.
+   * Restricted method
+   */
+  nsIDOMDOMRequest unregisterUA();
+
+  /**
+   * Unregister an application from push notifications.
+   * Restricted method
+   */
+  nsIDOMDOMRequest unregisterApp(in DOMString manifestURL);
+
+  /**
    * Return an array with the registeres apps.
    */
   nsIDOMDOMRequest getRegisteredApps();

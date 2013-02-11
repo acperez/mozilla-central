@@ -175,6 +175,10 @@ PushNotificationDB.prototype = {
     store.put({key: "UAToken", value: uatoken});
   },
 
+  forgetUA: function() {
+    this.ua_store_wr.clear();
+  },
+
   saveWA: function(pageURL, manifestURL, watoken, url) {
     let store = this.store;
     let req = store.put({manifestURL: manifestURL,

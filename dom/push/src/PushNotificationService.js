@@ -28,7 +28,7 @@ const kWSS_CONTRACTID = kNS_NETWORK_PROTOCOL_CONTRACTID_PREFIX + "wss";
 const kSYSTEMMESSAGEINTERNAL_CONTRACTID =
   "@mozilla.org/system-message-internal;1";
 
-const KEEP_ALIVE_TIMEOUT = 1000 * 30;
+const KEEP_ALIVE_TIMEOUT = 1000 * 60 * 15;
 const SEND_MSG_TIMEOUT = 1000 * 30;
 const CON_RETRY_TIME = 1000 * 30;
 

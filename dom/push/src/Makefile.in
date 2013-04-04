@@ -9,12 +9,19 @@ VPATH     = @srcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
+LIBRARY_NAME     = dom_push_s
+LIBXUL_LIBRARY   = 1
+FAIL_ON_WARNINGS := 1
+
 EXTRA_COMPONENTS = \
-  Push.js \
-  Push.manifest \
-  PushService.js \
-  PushService.manifest \
+  PushNotification.manifest \
+  PushNotificationManager.js \
+  PushNotificationService.js \
   $(NULL)
 
-include $(topsrcdir)/config/rules.mk
+EXTRA_JS_MODULES =   \
+  PushNotificationDB.jsm \
+  $(NULL)
 
+include $(topsrcdir)/config/config.mk
+include $(topsrcdir)/config/rules.mk

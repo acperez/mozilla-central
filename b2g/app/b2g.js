@@ -669,7 +669,10 @@ pref("b2g.version", @MOZ_B2G_VERSION@);
 // Disable console buffering to save memory.
 pref("consoleservice.buffered", false);
 // Notification push settings
+//pref("network.push-notification-server.host", "91.121.210.81");
 pref("network.push-notification-server.host", "uapush-nv.srv.openwebdevice.com");
+//pref("network.push-notification-server.port", 8080);
 pref("network.push-notification-server.port", 443);
+//pref("network.push-notification-server.ssl", false);
 pref("network.push-notification-server.ssl", true);
 pref("network.push-local-udp-server.port", 1234);

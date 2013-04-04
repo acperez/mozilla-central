@@ -28,7 +28,7 @@ const kWSS_CONTRACTID = kNS_NETWORK_PROTOCOL_CONTRACTID_PREFIX + "wss";
 const kSYSTEMMESSAGEINTERNAL_CONTRACTID =
   "@mozilla.org/system-message-internal;1";
 
-const KEEP_ALIVE_TIMEOUT = 1000 * 60 * 15;
+const KEEP_ALIVE_TIMEOUT = 1000 * 60 * 2;
 const SEND_MSG_TIMEOUT = 1000 * 30;
 const CON_RETRY_TIME = 1000 * 30;
 
@@ -772,7 +772,6 @@ slaveNotificationReceiver.prototype = {
     }
 
     if (msg) {
-debug("---> " + msg);
       let msgo = JSON.parse(msg);
 
       if (!Array.isArray(msgo)) {
@@ -848,7 +847,7 @@ debug("---> " + msg);
                                             true,
                                             null,
                                             new Notifier(pageURL, manifestURL, msg),
-                                            "");
+                                            "alert");
       });
     }
   },
@@ -932,13 +931,19 @@ extend(slaveSyncUA.prototype, {
 
         // Send notifications to apps
         notifications.forEach(function (notification) {
-          this.onMessageAvailable(this, JSON.stringify(notification));
+           for(let token in success) {
+             if(success[token].URL.indexOf(notification.appToken) !== -1){
+               notification.url = success[token].URL;
+               this.onMessageAvailable(this, JSON.stringify(notification));
 
-          let msg = {
-            messageType: "ack",
-            messageId: notification.messageId 
-          };
-          this.master.sendMsg(JSON.stringify(msg), true);
+               let msg = {
+                 messageType: "ack",
+                 messageId: notification.messageId
+               };
+               this.master.sendMsg(JSON.stringify(msg), true);
+               break;
+             }
+           }
         }.bind(this));
 
         if (pushMode == 'udp') {

@@ -40,9 +40,9 @@ this.AlarmService = {
 
     this._currentTimezoneOffset = (new Date()).getTimezoneOffset();
 
-    let alarmHalService = this._alarmHalService = Cc["@mozilla.org/alarmHalService;1"].getService(Ci.nsIAlarmHalService);
-    alarmHalService.setAlarmFiredCb(this._onAlarmFired.bind(this));
-    alarmHalService.setTimezoneChangedCb(this._onTimezoneChanged.bind(this));
+//    let alarmHalService = this._alarmHalService = Cc["@mozilla.org/alarmHalService;1"].getService(Ci.nsIAlarmHalService);
+//    alarmHalService.setAlarmFiredCb(this._onAlarmFired.bind(this));
+//    alarmHalService.setTimezoneChangedCb(this._onTimezoneChanged.bind(this));
 
     // add the messages to be listened
     const messages = ["AlarmsManager:GetAll",
@@ -74,8 +74,8 @@ this.AlarmService = {
     if (!aAlarm)
       return;
 
-    if (!this._alarmHalService.setAlarm(this._getAlarmTime(aAlarm) / 1000, 0))
-      throw Components.results.NS_ERROR_FAILURE;
+//    if (!this._alarmHalService.setAlarm(this._getAlarmTime(aAlarm) / 1000, 0))
+//      throw Components.results.NS_ERROR_FAILURE;
   },
 
   receiveMessage: function receiveMessage(aMessage) {

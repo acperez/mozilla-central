@@ -28,7 +28,7 @@ const kWSS_CONTRACTID = kNS_NETWORK_PROTOCOL_CONTRACTID_PREFIX + "wss";
 const kSYSTEMMESSAGEINTERNAL_CONTRACTID =
   "@mozilla.org/system-message-internal;1";
 
-const KEEP_ALIVE_TIMEOUT = 1000 * 60 * 2;
+const KEEP_ALIVE_TIMEOUT = 1000 * 60 * 4;
 const SEND_MSG_TIMEOUT = 1000 * 30;
 const CON_RETRY_TIME = 1000 * 30;
 
@@ -39,6 +39,10 @@ XPCOMUtils.defineLazyServiceGetter(this, "rilContentHelper",
 XPCOMUtils.defineLazyServiceGetter(this, "ppmm",
                                    "@mozilla.org/parentprocessmessagemanager;1",
                                    "nsIMessageListenerManager");
+
+XPCOMUtils.defineLazyServiceGetter(this, "gPowerManagerService",
+                                   "@mozilla.org/power/powermanagerservice;1",
+                                   "nsIPowerManagerService");
 
 const ServerSocketUDP = CC("@mozilla.org/network/server-socket-udp;1",
                            "nsIUDPServerSocket",
@@ -113,6 +117,20 @@ PushNotificationService.prototype = {
     // Check if port is available
     this.server = new ServerSocketUDP(this.port, loopback);
     this.server.asyncListen(this);
+
+    this.alarmKeepalive = Cc["@mozilla.org/alarmHalService;1"].getService(Ci.nsIAlarmHalService);
+    this.alarmKeepalive.setAlarmFiredCb(this.keepaliveCallback.bind(this));
+    this.alarmCancel = false;
+  },
+
+  keepaliveCallback: function keepaliveCallback() {
+    debug("Keepalive callback");
+    if (!this.alarmCancel) {
+      this.addSlave(new slaveSendPing(this));
+    } else {
+      debug("alarm is cancelled");
+      this.alarmCancel = false;
+    }
   },
 
   readPrefs: function readPrefs() {
@@ -400,7 +418,8 @@ PushNotificationService.prototype = {
 
   sendMsg: function sendMsg(message, noResponseRequired) {
     if (!noResponseRequired) {
-      this.keep_alive_timer.cancel();
+//      this.keep_alive_timer.cancel();
+//      this.alarmCancel = true;
       this.send_msg_timer.initWithCallback(this, SEND_MSG_TIMEOUT, Ci.nsITimer.TYPE_ONE_SHOT);
     }
 
@@ -414,10 +433,10 @@ PushNotificationService.prototype = {
    * nsITimerCallback
    */
   notify: function notify(timer) {
-    if (timer == this.keep_alive_timer) {
-      this.addSlave(new slaveSendPing(this));
-      return;
-    }
+//    if (timer == this.keep_alive_timer) {
+//      this.addSlave(new slaveSendPing(this));
+//      return;
+//    }
 
     if (timer == this.send_msg_timer) {
       if (DEBUG) {
@@ -435,6 +454,10 @@ PushNotificationService.prototype = {
       }
 
       this.connect()
+    }
+
+    if (timer == this.test_timer) {
+      this.test()
     }
   },
 
@@ -473,8 +496,10 @@ PushNotificationService.prototype = {
    */
 
   onStart: function onStart(context) {
-    this.keep_alive_timer.initWithCallback(this, this.keepAlive,
-                                           Ci.nsITimer.TYPE_ONE_SHOT);
+//    this.keep_alive_timer.initWithCallback(this, this.keepAlive,
+//                                           Ci.nsITimer.TYPE_ONE_SHOT);
+debug("onStart setalarm");
+    this.alarmKeepalive.setAlarm(((new Date()).getTime() + this.keepAlive) / 1000 , 0);
 
     let slave = this.currentSlave;
     if (slave && slave.onStart) {
@@ -484,8 +509,10 @@ PushNotificationService.prototype = {
 
   onMessageAvailable: function onMessageAvailable(context, msg) {
     this.send_msg_timer.cancel();
-    this.keep_alive_timer.initWithCallback(this, this.keepAlive,
-                                           Ci.nsITimer.TYPE_ONE_SHOT);
+//    this.keep_alive_timer.initWithCallback(this, this.keepAlive,
+//                                           Ci.nsITimer.TYPE_ONE_SHOT);
+
+    this.alarmKeepalive.setAlarm(((new Date()).getTime() + this.keepAlive) / 1000 , 0);
 
     if (DEBUG) {
       debug("Message from server: " + msg);
@@ -512,7 +539,9 @@ PushNotificationService.prototype = {
   },
 
   closeConnection: function closeConnection(context, statusCode) {
-    this.keep_alive_timer.cancel();
+//    this.keep_alive_timer.cancel();
+    this.alarmCancel = true;
+
     this.send_msg_timer.cancel();
 
     this.ws = null;
